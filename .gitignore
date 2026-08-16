@@ -1,0 +1,28 @@
+# Entorno virtual
+.venv/
+venv/
+env/
+
+# Cache de Python y Jupyter
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Configuración local de IDEs
+.vscode/
+.idea/
+
+# Datos pesados (se mantienen locales)
+data/datos_normalizados_parquet/
+data/processed/*
+!data/processed/endes_2025_nutricion_m1638_enriquecido.parquet
+
+# Logs
+logs/
+*.log
+
+# Variables de entorno y llaves secretas
+.env
+
+# Documento local de trabajo
+Negocio.md
