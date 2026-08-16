@@ -546,7 +546,472 @@ def tab_impacto_geografico(df_filtrado: pd.DataFrame) -> None:
         )
 
         st.plotly_chart(fig_tree, use_container_width=True)
+def tab_heatmap_trayectoria(df_filtrado: pd.DataFrame) -> None:
+    """
+    Pestaña 4:
+    Analiza dónde se concentra la caída de hemoglobina
+    y el aumento de anemia según edad en meses.
 
+    Responde a:
+    ¿En qué meses o rangos de edad se concentra
+    la mayor caída crítica de hemoglobina?
+    """
+
+    st.subheader(
+        "🔥 5 Trayectoria Crítica de Hemoglobina por Edad"
+    )
+
+    st.caption(
+        "Identificación de los meses y etapas pediátricas donde "
+        "se concentra la mayor caída de hemoglobina."
+    )
+
+    st.caption(
+        "🎛️ Los filtros generales del sidebar se aplican antes "
+        "de este análisis."
+    )
+
+    # =========================================================
+    # 1. VALIDACIÓN
+    # =========================================================
+
+    columnas_requeridas = {
+        "caseid",
+        "edad_meses_num",
+        "hemoglobina_g_dl",
+        "tiene_anemia",
+        "rango_edad_child",
+    }
+
+    faltantes = columnas_requeridas.difference(df_filtrado.columns)
+
+    if faltantes:
+        st.error(
+            "Faltan columnas necesarias para construir este análisis: "
+            + ", ".join(sorted(faltantes))
+        )
+        return
+
+    if df_filtrado.empty:
+        st.warning(
+            "⚠️ No existen datos con los filtros actuales."
+        )
+        return
+
+    # =========================================================
+    # 2. PREPARACIÓN
+    # =========================================================
+
+    df = df_filtrado.copy()
+
+    df["edad_meses_num"] = pd.to_numeric(
+        df["edad_meses_num"],
+        errors="coerce"
+    )
+
+    df["hemoglobina_g_dl"] = pd.to_numeric(
+        df["hemoglobina_g_dl"],
+        errors="coerce"
+    )
+
+    df["tiene_anemia"] = pd.to_numeric(
+        df["tiene_anemia"],
+        errors="coerce"
+    )
+
+    df = df[
+        (df["edad_meses_num"] >= 0)
+        & (df["edad_meses_num"] <= 59)
+    ].copy()
+
+    df = df.dropna(
+        subset=[
+            "edad_meses_num",
+            "hemoglobina_g_dl",
+            "tiene_anemia",
+            "rango_edad_child",
+        ]
+    )
+
+    if df.empty:
+        st.warning(
+            "No existen observaciones válidas entre 0 y 59 meses."
+        )
+        return
+
+    # =========================================================
+    # 3. FILTROS ESPECÍFICOS DE LA PREGUNTA DE NEGOCIO
+    # =========================================================
+
+    st.markdown("### 🎛️ Filtros específicos de trayectoria")
+
+    col1, col2, col3 = st.columns(3)
+
+    etapas = [
+        "1. 0-11 meses (Lactantes)",
+        "2. 12-23 meses (Caminadores)",
+        "3. 24-59 meses (Preescolares)",
+    ]
+
+    etapas_disponibles = [
+        e for e in etapas
+        if e in df["rango_edad_child"].astype(str).unique()
+    ]
+
+    with col1:
+
+        etapas_sel = st.multiselect(
+            "Etapa pediátrica",
+            options=etapas_disponibles,
+            default=etapas_disponibles,
+            key="heatmap_etapas",
+        )
+
+    with col2:
+
+        rango_meses = st.slider(
+            "Rango de edad",
+            min_value=0,
+            max_value=59,
+            value=(0, 59),
+            key="heatmap_rango",
+        )
+
+    with col3:
+
+        indicador = st.selectbox(
+            "Indicador principal",
+            [
+                "Hemoglobina promedio",
+                "Prevalencia de anemia",
+            ],
+            key="heatmap_indicador",
+        )
+
+    # =========================================================
+    # 4. APLICAR FILTROS
+    # =========================================================
+
+    df = df[
+        df["rango_edad_child"].astype(str).isin(etapas_sel)
+        & df["edad_meses_num"].between(
+            rango_meses[0],
+            rango_meses[1]
+        )
+    ].copy()
+
+    if df.empty:
+        st.warning(
+            "⚠️ No existen datos para los filtros seleccionados."
+        )
+        return
+
+    # =========================================================
+    # 5. AGRUPACIÓN MENSUAL
+    # =========================================================
+
+    df_meses = (
+        df.groupby(
+            "edad_meses_num",
+            observed=True
+        )
+        .agg(
+            hemoglobina_promedio=(
+                "hemoglobina_g_dl",
+                "mean"
+            ),
+
+            prevalencia_anemia=(
+                "tiene_anemia",
+                "mean"
+            ),
+
+            casos_anemia=(
+                "tiene_anemia",
+                "sum"
+            ),
+
+            total_niños=(
+                "caseid",
+                "count"
+            ),
+        )
+        .reset_index()
+        .sort_values("edad_meses_num")
+    )
+
+    df_meses["prevalencia_anemia"] *= 100
+
+    # =========================================================
+    # 6. IDENTIFICAR PUNTO CRÍTICO
+    # =========================================================
+
+    if indicador == "Hemoglobina promedio":
+
+        fila_critica = df_meses.loc[
+            df_meses["hemoglobina_promedio"].idxmin()
+        ]
+
+        mes_critico = int(
+            fila_critica["edad_meses_num"]
+        )
+
+        valor_critico = float(
+            fila_critica["hemoglobina_promedio"]
+        )
+
+        texto_critico = (
+            f"Mes crítico: **{mes_critico} meses** "
+            f"con Hemoglobina promedio de **{valor_critico:.2f} g/dL**"
+        )
+
+    else:
+
+        fila_critica = df_meses.loc[
+            df_meses["prevalencia_anemia"].idxmax()
+        ]
+
+        mes_critico = int(
+            fila_critica["edad_meses_num"]
+        )
+
+        valor_critico = float(
+            fila_critica["prevalencia_anemia"]
+        )
+
+        texto_critico = (
+            f"Mes crítico: **{mes_critico} meses** "
+            f"con prevalencia de anemia de **{valor_critico:.1f}%**"
+        )
+
+    # =========================================================
+    # 7. KPIs
+    # =========================================================
+
+    k1, k2, k3, k4 = st.columns(4)
+
+    total = int(df_meses["total_niños"].sum())
+
+    hb_min = float(
+        df_meses["hemoglobina_promedio"].min()
+    )
+
+    anemia_max = float(
+        df_meses["prevalencia_anemia"].max()
+    )
+
+    k1.metric(
+        "Niños evaluados",
+        f"{total:,}"
+    )
+
+    k2.metric(
+        "Hemoglobina mínima promedio",
+        f"{hb_min:.2f} g/dL"
+    )
+
+    k3.metric(
+        "Mayor prevalencia",
+        f"{anemia_max:.1f}%"
+    )
+
+    k4.metric(
+        "Mes crítico",
+        f"{mes_critico} meses"
+    )
+
+    st.info(
+        "🔎 " + texto_critico
+    )
+
+    st.divider()
+
+    # =========================================================
+    # 8. CREAR MATRIZ PARA HEATMAP
+    # =========================================================
+
+    if indicador == "Hemoglobina promedio":
+
+        valor_columna = "hemoglobina_promedio"
+
+        titulo_color = (
+            "Hemoglobina promedio (g/dL)"
+        )
+
+        escala = "Blues"
+
+    else:
+
+        valor_columna = "prevalencia_anemia"
+
+        titulo_color = (
+            "Prevalencia de anemia (%)"
+        )
+
+        escala = "Reds"
+
+    matriz = df_meses[
+        [
+            "edad_meses_num",
+            valor_columna
+        ]
+    ].copy()
+
+    matriz["Edad"] = (
+        matriz["edad_meses_num"]
+        .astype(int)
+        .astype(str)
+        + " meses"
+    )
+
+    matriz["Indicador"] = titulo_color
+
+    matriz = matriz.pivot(
+        index="Indicador",
+        columns="Edad",
+        values=valor_columna
+    )
+
+    # =========================================================
+    # 9. HEATMAP
+    # =========================================================
+
+    st.markdown(
+        "### 🌡️ Mapa de intensidad por edad"
+    )
+
+    fig = px.imshow(
+        matriz,
+        text_auto=".2f",
+        aspect="auto",
+        color_continuous_scale=escala,
+        labels={
+            "x": "Edad del niño",
+            "y": "",
+            "color": titulo_color,
+        },
+        title=(
+            "Mapa de concentración crítica "
+            "según edad en meses"
+        ),
+    )
+
+    fig.update_layout(
+        height=300,
+        plot_bgcolor="white",
+        margin=dict(
+            l=20,
+            r=20,
+            t=70,
+            b=20
+        ),
+    )
+
+    fig.update_xaxes(
+        tickangle=-45
+    )
+
+    st.plotly_chart(
+        fig,
+        use_container_width=True
+    )
+
+    # =========================================================
+    # 10. COMPARACIÓN CON UMBRAL CLÍNICO
+    # =========================================================
+
+    st.markdown(
+        "### 🩺 Identificación de meses bajo umbral clínico"
+    )
+
+    meses_bajo_umbral = df_meses[
+        df_meses["hemoglobina_promedio"] < 11
+    ].copy()
+
+    if meses_bajo_umbral.empty:
+
+        st.success(
+            "No se encontraron meses con hemoglobina "
+            "promedio inferior a 11.0 g/dL."
+        )
+
+    else:
+
+        st.warning(
+            f"⚠️ Se identificaron "
+            f"**{len(meses_bajo_umbral)} meses** "
+            "con hemoglobina promedio inferior a "
+            "**11.0 g/dL**."
+        )
+
+        tabla = meses_bajo_umbral[
+            [
+                "edad_meses_num",
+                "hemoglobina_promedio",
+                "prevalencia_anemia",
+                "casos_anemia",
+                "total_niños",
+            ]
+        ].copy()
+
+        tabla.columns = [
+            "Edad (meses)",
+            "Hb promedio (g/dL)",
+            "Prevalencia anemia (%)",
+            "Casos anemia",
+            "Niños evaluados",
+        ]
+
+        tabla[
+            "Hb promedio (g/dL)"
+        ] = tabla[
+            "Hb promedio (g/dL)"
+        ].round(2)
+
+        tabla[
+            "Prevalencia anemia (%)"
+        ] = tabla[
+            "Prevalencia anemia (%)"
+        ].round(1)
+
+        st.dataframe(
+            tabla,
+            use_container_width=True,
+            hide_index=True,
+        )
+
+    # =========================================================
+    # 11. INTERPRETACIÓN
+    # =========================================================
+
+    with st.expander(
+        "🎓 Interpretación de la pregunta de negocio"
+    ):
+
+        st.markdown(
+            f"""
+            ### ¿Qué busca este análisis?
+
+            La pregunta de negocio busca identificar **en qué momento
+            de la trayectoria pediátrica se presenta la mayor
+            concentración de riesgo de anemia**.
+
+            **Resultado de la selección actual:**
+
+            - Mes crítico: **{mes_critico} meses**
+            - Hemoglobina promedio mínima: **{hb_min:.2f} g/dL**
+            - Mayor prevalencia observada:
+              **{anemia_max:.1f}%**
+
+            El mapa de intensidad permite detectar visualmente
+            los meses donde el indicador presenta valores más
+            críticos.
+
+            Esto facilita la **focalización de intervenciones
+            nutricionales según edad**, en lugar de analizar
+            únicamente el promedio general de niños de 0 a 59 meses.
+            """
+        )
 
 # ── Pregunta de Negocio 5.1 ─────────────────────────────────────
 
@@ -1038,6 +1503,13 @@ def tab_prevalencia_etapa(df_filtrado: pd.DataFrame) -> None:
             """
         )
 
+# ── Pregunta de Negocio: Trayectoria Clínica por Edad ────────────
+
+# ─────────────────────────────────────────────────────────────
+# PESTAÑA 4 — PREGUNTA DE NEGOCIO 5.1
+# HEATMAP DE TRAYECTORIA CLÍNICA
+# ─────────────────────────────────────────────────────────────
+
 
 # ── Punto de Entrada de la Aplicación (Main) ────────────────────
 
@@ -1062,9 +1534,10 @@ def main() -> None:
 
     # Pestañas activas
     # La tercera pestaña corresponde a la Pregunta de Negocio 5.1.
-    tab1, tab2, tab3 = st.tabs([
+    tab1, tab2, tab3, tab4 = st.tabs([
         '📊 Resumen Epidemiológico',
         '🗺️ Impacto Geográfico y Focalización',
+        '📈 Trayectoria de Hemoglobina',
         '🧒 5.1 Anemia por Etapa Pediátrica',
     ])
 
@@ -1075,6 +1548,9 @@ def main() -> None:
         tab_impacto_geografico(df_filtrado)
 
     with tab3:
+        tab_heatmap_trayectoria(df_filtrado)
+
+    with tab4:
         tab_prevalencia_etapa(df_filtrado)
 
 
