@@ -33,35 +33,12 @@ COLOR_ETAPAS: dict[str, str] = {
 
 @st.cache_data(show_spinner=False)
 def cargar_y_preparar_datos() -> pd.DataFrame:
-<<<<<<< HEAD
-    """Carga el dataset optimizado .parquet desde data/processed y aplica transformaciones de datos."""
-    if not DATA_PATH.exists():
-        # Generación de datos sintéticos de respaldo si el archivo parquet no se encuentra
-        np.random.seed(42)
-        n = 2000
-        deps = ['Amazonas', 'Áncash', 'Apurímac', 'Arequipa', 'Ayacucho', 'Cajamarca', 'Callao', 'Cusco',
-                'Huancavelica', 'Huánuco', 'Ica', 'Junín', 'La Libertad', 'Lambayeque', 'Lima', 'Loreto',
-                'Madre de Dios', 'Moquegua', 'Pasco', 'Piura', 'Puno', 'San Martín', 'Tacna', 'Tumbes', 'Ucayali']
-
-        df = pd.DataFrame({
-            'caseid': range(1000, 1000 + n),
-            'nombre_departamento': np.random.choice(deps, n, p=[0.15, 0.15, 0.3, 0.1, 0.1, 0.1, 0.1]),
-            'edad_meses_num': np.random.randint(6, 60, n),
-            'hemoglobina_g_dl': np.random.normal(11.2, 1.5, n).round(2),
-            'es_jefatura_femenina': np.random.choice([0, 1], n, p=[0.7, 0.3]),
-            'v190': np.random.choice([1, 2, 3, 4, 5], n),
-        })
-    else:
-        # LECTURA DEL ARCHIVO PARQUET DE LA CARPETA PROCESSED
-        df = pd.read_parquet(DATA_PATH)
-=======
     """Carga el dataset ENDES versionado junto con la aplicacion."""
     if not DATA_PATH.exists():
         raise FileNotFoundError(
             f"No se encontro el dataset procesado requerido: {DATA_PATH}"
         )
     df = pd.read_parquet(DATA_PATH)
->>>>>>> e998f0dfcf7a2037c54f04375ddbf78d63b178b5
 
     df = df.copy()
 
@@ -95,11 +72,7 @@ def cargar_y_preparar_datos() -> pd.DataFrame:
     # Clasificación de Riesgo Departamental
     if 'categoria_riesgo' not in df.columns:
         tasa_dep = (
-<<<<<<< HEAD
-            df.groupby('nombre_departamento')['tiene_anemia'].transform('mean') * 100
-=======
             df.groupby('nombre_departamento', observed=True)['tiene_anemia'].transform('mean') * 100
->>>>>>> e998f0dfcf7a2037c54f04375ddbf78d63b178b5
         )
         df['categoria_riesgo'] = pd.cut(
             tasa_dep,
@@ -347,9 +320,6 @@ def tab_resumen(df: pd.DataFrame, df_completo: pd.DataFrame) -> None:
 
 
 def tab_impacto_geografico(df_filtrado: pd.DataFrame) -> None:
-<<<<<<< HEAD
-    """Pestaña 2: Impacto Geográfico y Focalización de Anemia."""
-=======
     """Pestaña 2: Impacto Geográfico y Focalización de Anemia.
 
     IMPORTANTE:
@@ -360,15 +330,11 @@ def tab_impacto_geografico(df_filtrado: pd.DataFrame) -> None:
     filtro. Esos grupos vacíos eran los que producían ``pd.NA`` y el error
     "boolean value of NA is ambiguous".
     """
->>>>>>> e998f0dfcf7a2037c54f04375ddbf78d63b178b5
     st.subheader('🗺️ Impacto Geográfico y Focalización Territorial de la Anemia')
     st.caption(
         'Análisis comparativo de prevalencia (%) y volumen muestral de niños evaluados por departamento.'
     )
-<<<<<<< HEAD
-=======
     st.caption('🎛️ Esta vista responde a los filtros globales de la barra lateral.')
->>>>>>> e998f0dfcf7a2037c54f04375ddbf78d63b178b5
 
     if df_filtrado.empty:
         st.warning(
@@ -376,10 +342,6 @@ def tab_impacto_geografico(df_filtrado: pd.DataFrame) -> None:
         )
         return
 
-<<<<<<< HEAD
-    df_geo = (
-        df_filtrado.groupby('nombre_departamento')
-=======
     # -------------------------------------------------------------------------
     # 1. AGREGACIÓN SEGURA DESPUÉS DE LOS FILTROS
     # -------------------------------------------------------------------------
@@ -387,7 +349,6 @@ def tab_impacto_geografico(df_filtrado: pd.DataFrame) -> None:
     # Solo devuelve departamentos que realmente tienen registros en df_filtrado.
     df_geo = (
         df_filtrado.groupby('nombre_departamento', observed=True)
->>>>>>> e998f0dfcf7a2037c54f04375ddbf78d63b178b5
         .agg(
             total_evaluados=('caseid', 'count'),
             total_casos=('tiene_anemia', 'sum'),
@@ -396,15 +357,6 @@ def tab_impacto_geografico(df_filtrado: pd.DataFrame) -> None:
         .reset_index()
     )
 
-<<<<<<< HEAD
-    def asignar_riesgo(pct):
-        if pct >= 40.0:
-            return 'Riesgo Crítico (≥ 40%)', '#A93226'
-        elif pct >= 30.0:
-            return 'Riesgo Alto (30% - 39.9%)', '#E67E22'
-        else:
-            return 'Riesgo Moderado (< 30%)', '#27AE60'
-=======
     # Convertimos explícitamente las métricas a numéricas. El Parquet optimizado
     # usa tipos nullable de Pandas (Int8, Int16, etc.), por eso es conveniente
     # limpiar cualquier NA antes de usar comparaciones booleanas o Plotly.
@@ -437,15 +389,11 @@ def tab_impacto_geografico(df_filtrado: pd.DataFrame) -> None:
         if pct >= 30.0:
             return 'Riesgo Alto (30% - 39.9%)', '#E67E22'
         return 'Riesgo Moderado (< 30%)', '#27AE60'
->>>>>>> e998f0dfcf7a2037c54f04375ddbf78d63b178b5
 
     res_riesgo = df_geo['pct_anemia'].apply(asignar_riesgo)
     df_geo['nivel_riesgo'] = [r[0] for r in res_riesgo]
     df_geo['color_hex'] = [r[1] for r in res_riesgo]
 
-<<<<<<< HEAD
-    df_geo_lol = df_geo.sort_values(by='pct_anemia', ascending=True)
-=======
     df_geo_lol = df_geo.sort_values(by='pct_anemia', ascending=True).copy()
 
     # Indicadores que ayudan a comprobar visualmente que el filtro sí cambió.
@@ -454,7 +402,6 @@ def tab_impacto_geografico(df_filtrado: pd.DataFrame) -> None:
     col_kpi2.metric('Niños evaluados', f"{int(df_geo['total_evaluados'].sum()):,}")
     tasa_vista = (df_geo['total_casos'].sum() / df_geo['total_evaluados'].sum()) * 100
     col_kpi3.metric('Prevalencia de la vista', f'{tasa_vista:.1f}%')
->>>>>>> e998f0dfcf7a2037c54f04375ddbf78d63b178b5
 
     col_izq, col_der = st.columns(2)
 
@@ -463,27 +410,10 @@ def tab_impacto_geografico(df_filtrado: pd.DataFrame) -> None:
 
         fig_lol = go.Figure()
 
-<<<<<<< HEAD
-        # 1. Dibujar las líneas horizontales (hlines) del Lollipop
-=======
->>>>>>> e998f0dfcf7a2037c54f04375ddbf78d63b178b5
         for _, row in df_geo_lol.iterrows():
             fig_lol.add_shape(
                 type='line',
                 x0=0,
-<<<<<<< HEAD
-                y0=row['nombre_departamento'],
-                x1=row['pct_anemia'],
-                y1=row['nombre_departamento'],
-                line=dict(color='#BDC3C7', width=2),
-            )
-
-        # 2. Dibujar los puntos principales del Lollipop
-        fig_lol.add_trace(
-            go.Scatter(
-                x=df_geo_lol['pct_anemia'],
-                y=df_geo_lol['nombre_departamento'],
-=======
                 y0=str(row['nombre_departamento']),
                 x1=float(row['pct_anemia']),
                 y1=str(row['nombre_departamento']),
@@ -494,27 +424,18 @@ def tab_impacto_geografico(df_filtrado: pd.DataFrame) -> None:
             go.Scatter(
                 x=df_geo_lol['pct_anemia'].astype(float),
                 y=df_geo_lol['nombre_departamento'].astype(str),
->>>>>>> e998f0dfcf7a2037c54f04375ddbf78d63b178b5
                 mode='markers+text',
                 marker=dict(
                     color=df_geo_lol['color_hex'],
                     size=14,
                     line=dict(color='white', width=1.5),
                 ),
-<<<<<<< HEAD
-                text=df_geo_lol['pct_anemia'].apply(lambda x: f'  {x:.1f}%'),
-=======
                 text=df_geo_lol['pct_anemia'].apply(lambda x: f'  {float(x):.1f}%'),
->>>>>>> e998f0dfcf7a2037c54f04375ddbf78d63b178b5
                 textposition='middle right',
                 textfont=dict(size=11, color='#2C3E50'),
                 hovertext=df_geo_lol.apply(
                     lambda r: f"<b>{r['nombre_departamento']}</b><br>"
-<<<<<<< HEAD
-                    f"Prevalencia: {r['pct_anemia']:.1f}%<br>"
-=======
                     f"Prevalencia: {float(r['pct_anemia']):.1f}%<br>"
->>>>>>> e998f0dfcf7a2037c54f04375ddbf78d63b178b5
                     f"Casos: {int(r['total_casos']):,} / {int(r['total_evaluados']):,} niños",
                     axis=1,
                 ),
@@ -523,18 +444,10 @@ def tab_impacto_geografico(df_filtrado: pd.DataFrame) -> None:
             )
         )
 
-<<<<<<< HEAD
-        # 3. TRACES DUMMY PARA CONSTRUIR LA LEYENDA (SEMÁFORO DE RIESGO)
-        elementos_leyenda = [
-            ("Riesgo Crítico (≥ 40%)", "#A93226"),
-            ("Riesgo Alto (30% - 39.9%)", "#E67E22"),
-            ("Riesgo Moderado (< 30%)", "#27AE60")
-=======
         elementos_leyenda = [
             ('Riesgo Crítico (≥ 40%)', '#A93226'),
             ('Riesgo Alto (30% - 39.9%)', '#E67E22'),
             ('Riesgo Moderado (< 30%)', '#27AE60'),
->>>>>>> e998f0dfcf7a2037c54f04375ddbf78d63b178b5
         ]
 
         for etiqueta, color in elementos_leyenda:
@@ -545,19 +458,6 @@ def tab_impacto_geografico(df_filtrado: pd.DataFrame) -> None:
                     mode='markers',
                     marker=dict(size=12, color=color, symbol='square'),
                     name=etiqueta,
-<<<<<<< HEAD
-                    showlegend=True
-                )
-            )
-
-        max_val = df_geo_lol['pct_anemia'].max() if not df_geo_lol.empty else 50
-        
-        # 4. CONFIGURACIÓN DE LA LEYENDA Y DISEÑO
-        fig_lol.update_layout(
-            xaxis=dict(
-                title='% Prevalencia de Anemia',
-                range=[0, max_val + 15],
-=======
                     showlegend=True,
                 )
             )
@@ -567,7 +467,6 @@ def tab_impacto_geografico(df_filtrado: pd.DataFrame) -> None:
             xaxis=dict(
                 title='% Prevalencia de Anemia',
                 range=[0, min(100, max_val + 15)],
->>>>>>> e998f0dfcf7a2037c54f04375ddbf78d63b178b5
                 ticksuffix='%',
                 showgrid=True,
                 gridcolor='#EAECEE',
@@ -578,18 +477,6 @@ def tab_impacto_geografico(df_filtrado: pd.DataFrame) -> None:
             margin=dict(l=20, r=20, t=20, b=20),
             showlegend=True,
             legend=dict(
-<<<<<<< HEAD
-                title=dict(text="<b>Semáforo de Riesgo Territorial</b>", font=dict(size=11, color="#1A1A1A")),
-                x=0.98,
-                y=0.02,
-                xanchor="right",
-                yanchor="bottom",
-                bgcolor="#F8F9F9",
-                bordercolor="#D5D8DC",
-                borderwidth=1,
-                font=dict(size=10, color="#2C3E50")
-            )
-=======
                 title=dict(
                     text='<b>Semáforo de Riesgo Territorial</b>',
                     font=dict(size=11, color='#1A1A1A'),
@@ -603,7 +490,6 @@ def tab_impacto_geografico(df_filtrado: pd.DataFrame) -> None:
                 borderwidth=1,
                 font=dict(size=10, color='#2C3E50'),
             ),
->>>>>>> e998f0dfcf7a2037c54f04375ddbf78d63b178b5
         )
 
         st.plotly_chart(fig_lol, use_container_width=True)
@@ -611,19 +497,6 @@ def tab_impacto_geografico(df_filtrado: pd.DataFrame) -> None:
     with col_der:
         st.markdown('##### 🔲 Proporción de Muestra y Tasa de Anemia (Treemap)')
 
-<<<<<<< HEAD
-        # 1. Crear etiquetas detalladas para el Treemap
-        df_geo['texto_pct'] = df_geo['pct_anemia'].map('{:.1f}%'.format)
-        df_geo['texto_evaluados'] = df_geo['total_evaluados'].apply(lambda x: f"({x:,} niños)")
-
-        fig_tree = px.treemap(
-            df_geo,
-            path=[px.Constant('Perú (Total)'), 'nombre_departamento'],
-            values='total_evaluados',
-            color='pct_anemia',
-            color_continuous_scale='Reds',
-            range_color=[df_geo['pct_anemia'].min(), df_geo['pct_anemia'].max()],
-=======
         df_geo['texto_pct'] = df_geo['pct_anemia'].apply(lambda x: f'{float(x):.1f}%')
         df_geo['texto_evaluados'] = df_geo['total_evaluados'].apply(
             lambda x: f'({int(x):,} niños)'
@@ -646,16 +519,11 @@ def tab_impacto_geografico(df_filtrado: pd.DataFrame) -> None:
             color='pct_anemia',
             color_continuous_scale='Reds',
             range_color=rango_color,
->>>>>>> e998f0dfcf7a2037c54f04375ddbf78d63b178b5
             custom_data=['texto_pct', 'texto_evaluados'],
             hover_data={
                 'total_evaluados': ':,',
                 'total_casos': ':,',
-<<<<<<< HEAD
-                'pct_anemia': ':.1f%',
-=======
                 'pct_anemia': ':.1f',
->>>>>>> e998f0dfcf7a2037c54f04375ddbf78d63b178b5
             },
             labels={
                 'total_evaluados': 'Evaluados',
@@ -664,10 +532,6 @@ def tab_impacto_geografico(df_filtrado: pd.DataFrame) -> None:
             },
         )
 
-<<<<<<< HEAD
-        # 2. Configurar la plantilla de texto multilínea
-=======
->>>>>>> e998f0dfcf7a2037c54f04375ddbf78d63b178b5
         fig_tree.update_traces(
             texttemplate='<b>%{label}</b><br>%{customdata[0]}<br>%{customdata[1]}',
             textinfo='text',
@@ -684,8 +548,6 @@ def tab_impacto_geografico(df_filtrado: pd.DataFrame) -> None:
         st.plotly_chart(fig_tree, use_container_width=True)
 
 
-<<<<<<< HEAD
-=======
 # ── Pregunta de Negocio 5.1 ─────────────────────────────────────
 
 def tab_prevalencia_etapa(df_filtrado: pd.DataFrame) -> None:
@@ -1177,7 +1039,6 @@ def tab_prevalencia_etapa(df_filtrado: pd.DataFrame) -> None:
         )
 
 
->>>>>>> e998f0dfcf7a2037c54f04375ddbf78d63b178b5
 # ── Punto de Entrada de la Aplicación (Main) ────────────────────
 
 def main() -> None:
@@ -1185,11 +1046,7 @@ def main() -> None:
     configurar_pagina()
 
     st.markdown('## 🩸 Observatorio Analítico de Anemia Infantil en el Perú')
-<<<<<<< HEAD
-    st.caption('Plataforma de Diagnóstico Territorial y Trayectoria Nutricional Pediátrica · ENDES 2026')
-=======
     st.caption('Plataforma de Diagnóstico Territorial y Trayectoria Nutricional Pediátrica · ENDES 2025')
->>>>>>> e998f0dfcf7a2037c54f04375ddbf78d63b178b5
     st.divider()
 
     # Carga de datos
@@ -1204,20 +1061,12 @@ def main() -> None:
         )
 
     # Pestañas activas
-<<<<<<< HEAD
-    tab1, tab2, tab3 = st.tabs([
-    '📊 Resumen Epidemiológico',
-    '🗺️ Impacto Geográfico y Focalización',
-    '💰 Gradiente Económico',
-    ]   )
-=======
     # La tercera pestaña corresponde a la Pregunta de Negocio 5.1.
     tab1, tab2, tab3 = st.tabs([
         '📊 Resumen Epidemiológico',
         '🗺️ Impacto Geográfico y Focalización',
         '🧒 5.1 Anemia por Etapa Pediátrica',
     ])
->>>>>>> e998f0dfcf7a2037c54f04375ddbf78d63b178b5
 
     with tab1:
         tab_resumen(df_filtrado, df_raw)
@@ -1226,175 +1075,8 @@ def main() -> None:
         tab_impacto_geografico(df_filtrado)
 
     with tab3:
-<<<<<<< HEAD
-        tab_gradiente_economico(df_filtrado, df_filtrado)  
-
-
-# ── Pestaña: Gradiente Económico y Nivel de Riqueza ─────────────────────────
-
-def tab_gradiente_economico(df_filtrado: pd.DataFrame, df_completo: pd.DataFrame) -> None:
-    """
-    Pestaña 3: Gradiente Económico - Análisis de la relación entre nivel de riqueza y anemia infantil.
-    """
-    st.subheader("💰 Gradiente Económico: Nivel de Riqueza y Prevalencia de Anemia Infantil")
-    st.caption("Análisis de la relación entre el quintil de riqueza del hogar (v190) y la prevalencia de anemia.")
-
-    # ── 0. VALIDACIÓN DE FILTROS ──────────────────────────────────────────────
-    # Si el usuario no ha seleccionado nada, mostramos el mensaje de advertencia y salimos.
-    if df_filtrado.empty:
-        st.warning("⚠️ No hay registros con los filtros actuales. Ajusta los filtros de la barra lateral para ver el análisis económico.")
-        return
-
-    # ── 1. PREPARACIÓN DE DATOS (USANDO df_filtrado) ──────────────────────────
-    dicc_quintil = {
-        1: '1. Más Pobre',
-        2: '2. Pobre',
-        3: '3. Medio',
-        4: '4. Rico',
-        5: '5. Más Rico'
-    }
-
-    # Trabajamos con df_filtrado para que los gráficos respondan a los filtros
-    df_riqueza = df_filtrado[df_filtrado['v190'].notnull()].copy()
-    df_riqueza['v190_num'] = pd.to_numeric(df_riqueza['v190'], errors='coerce')
-    df_riqueza['desc_quintil'] = df_riqueza['v190_num'].map(dicc_quintil)
-
-    # Si después de filtrar no hay datos en el quintil, detenemos la ejecución de esta pestaña
-    if df_riqueza.empty:
-        st.warning("⚠️ No hay datos de quintil de riqueza para el filtro seleccionado.")
-        return
-
-    df_resumen_q = df_riqueza.groupby(['v190_num', 'desc_quintil'], as_index=False).agg(
-        total_niños=('caseid', 'count'),
-        casos_anemia=('tiene_anemia', 'sum'),
-        pct_anemia=('tiene_anemia', lambda x: x.mean() * 100)
-    ).sort_values('v190_num')
-
-    # ── 2. TABLA DE RESULTADOS ────────────────────────────────────────────────
-    with st.expander("📋 Tabla de resultados por quintil de riqueza", expanded=False):
-        tabla_q = df_resumen_q.rename(columns={
-            'desc_quintil': 'Quintil de Riqueza',
-            'total_niños': 'Total Niños',
-            'casos_anemia': 'Casos Anemia',
-            'pct_anemia': 'Prevalencia (%)'
-        })
-        st.dataframe(tabla_q, use_container_width=True, hide_index=True)
-
-    # ── 3. GRÁFICO 1: LÍNEA DE TENDENCIA ────────────────────────────────────
-    col_izq, col_der = st.columns([2, 1])
-
-    with col_izq:
-        st.markdown("##### 📈 Tendencia de la Prevalencia por Quintil de Riqueza")
-        fig_line = go.Figure()
-        fig_line.add_trace(go.Scatter(
-            x=df_resumen_q['desc_quintil'],
-            y=df_resumen_q['pct_anemia'],
-            mode='lines+markers+text',
-            name='Prevalencia de Anemia',
-            line=dict(color='#1B4F72', width=3),
-            marker=dict(color='#C0392B', size=12, line=dict(color='white', width=1.5)),
-            text=df_resumen_q['pct_anemia'].apply(lambda x: f'{x:.1f}%'),
-            textposition='top center',
-            textfont=dict(size=10, color='#2C3E50'),
-            hovertemplate='<b>%{x}</b><br>Prevalencia: %{y:.1f}%<br>Casos: %{customdata[0]:,}<extra></extra>',
-            customdata=df_resumen_q[['casos_anemia']].values
-        ))
-        fig_line.update_layout(
-            xaxis=dict(title='Quintil de Riqueza del Hogar (v190)', tickangle=0),
-            yaxis=dict(title='Prevalencia de Anemia (%)', ticksuffix='%', gridcolor='#EAECEE',
-                       range=[0, max(df_resumen_q['pct_anemia']) + 12]),
-            plot_bgcolor='white', height=400, margin=dict(l=20, r=20, t=20, b=20)
-        )
-        st.plotly_chart(fig_line, use_container_width=True)
-
-    with col_der:
-        st.markdown("##### 📊 Indicadores Clave")
-        max_pct = df_resumen_q['pct_anemia'].max()
-        min_pct = df_resumen_q['pct_anemia'].min()
-        diff_pct = max_pct - min_pct
-        q_pobre = df_resumen_q[df_resumen_q['desc_quintil'] == '1. Más Pobre']
-        q_rico = df_resumen_q[df_resumen_q['desc_quintil'] == '5. Más Rico']
-
-        st.metric("Brecha entre Más Pobre y Más Rico", f"{diff_pct:.1f} puntos",
-                  delta=f"{max_pct:.1f}% → {min_pct:.1f}%", delta_color="inverse")
-        if not q_pobre.empty:
-            st.metric("Prevalencia - Quintil Más Pobre", f"{q_pobre.iloc[0]['pct_anemia']:.1f}%",
-                      delta=f"{q_pobre.iloc[0]['casos_anemia']:,} casos")
-        if not q_rico.empty:
-            st.metric("Prevalencia - Quintil Más Rico", f"{q_rico.iloc[0]['pct_anemia']:.1f}%",
-                      delta=f"{q_rico.iloc[0]['casos_anemia']:,} casos")
-
-    # ── 4. GRÁFICO 2: DISTRIBUCIÓN DE CASOS (Pregunta de Negocio 4) ────────
-    st.divider()
-    st.markdown("##### 📊 Distribución de Casos de Anemia por Quintil de Riqueza")
-    col_bar, col_pie = st.columns([2, 1])
-
-    with col_bar:
-        fig_bar = go.Figure()
-        fig_bar.add_trace(go.Bar(
-            x=df_resumen_q['desc_quintil'],
-            y=df_resumen_q['casos_anemia'],
-            text=df_resumen_q['casos_anemia'].apply(lambda x: f'{x:,}'),
-            textposition='outside',
-            marker=dict(color=['#A93226', '#E67E22', '#F1C40F', '#2ECC71', '#1B4F72'],
-                        line=dict(color='white', width=1.5)),
-            hovertemplate='<b>%{x}</b><br>Casos: %{y:,}<br>Prevalencia: %{customdata:.1f}%<extra></extra>',
-            customdata=df_resumen_q['pct_anemia']
-        ))
-        fig_bar.update_layout(
-            xaxis=dict(title='Quintil de Riqueza', tickangle=0),
-            yaxis=dict(title='Número de Casos de Anemia', gridcolor='#EAECEE'),
-            plot_bgcolor='white', height=350, margin=dict(l=20, r=20, t=20, b=20), showlegend=False
-        )
-        st.plotly_chart(fig_bar, use_container_width=True)
-
-    with col_pie:
-        fig_pie = go.Figure()
-        fig_pie.add_trace(go.Pie(
-            labels=df_resumen_q['desc_quintil'],
-            values=df_resumen_q['casos_anemia'],
-            textinfo='label+percent',
-            textposition='inside',
-            hole=0.4,
-            marker=dict(colors=['#A93226', '#E67E22', '#F1C40F', '#2ECC71', '#1B4F72']),
-            hovertemplate='<b>%{label}</b><br>Casos: %{value:,}<br>Porcentaje: %{percent}<extra></extra>'
-        ))
-        fig_pie.update_layout(title='Distribución de Casos', height=350, margin=dict(l=10, r=10, t=30, b=10), showlegend=False)
-        st.plotly_chart(fig_pie, use_container_width=True)
-
-        # ── 5. CONCLUSIONES ──────────────────────────────────────────────────────
-    st.divider()
-    with st.expander("📝 Interpretación y Conclusiones", expanded=False):
-        
-        # Extraemos los datos de forma segura con .iloc para evitar errores de índice
-        q_pobre_data = df_resumen_q[df_resumen_q['desc_quintil'] == '1. Más Pobre']
-        q_rico_data = df_resumen_q[df_resumen_q['desc_quintil'] == '5. Más Rico']
-        
-        # Definimos valores por defecto (0) por si no hay datos en esos quintiles
-        pct_pobre = q_pobre_data['pct_anemia'].values[0] if not q_pobre_data.empty else 0.0
-        pct_rico = q_rico_data['pct_anemia'].values[0] if not q_rico_data.empty else 0.0
-        diff_pct = pct_pobre - pct_rico
-
-        st.markdown(f"""
-        **Hallazgos Principales**
-        1. **Relación inversa entre riqueza y anemia**: La prevalencia disminuye progresivamente con el quintil de riqueza.
-        2. **Brecha significativa**: Del quintil más pobre ({pct_pobre:.1f}%) al más rico ({pct_rico:.1f}%) hay una diferencia de {diff_pct:.1f} puntos porcentuales.
-        3. **Concentración de vulnerabilidad**: Los dos primeros quintiles suelen concentrar la mayor cantidad de casos.
-
-        **Recomendaciones**
-        - Focalizar intervenciones en quintiles 1 y 2
-        - Fortalecer programas de transferencia condicionada (Juntos, Cuna Más)
-        - Garantizar acceso equitativo a alimentos fortificados
-        - Monitorear indicadores socioeconómicos-nutricionales
-        """)
-    st.caption("📌 Análisis basado en el índice de riqueza del hogar (v190) · ENDES 2025")
-
-if __name__ == '__main__':
-    main()
-=======
         tab_prevalencia_etapa(df_filtrado)
 
 
 if __name__ == '__main__':
     main()
->>>>>>> e998f0dfcf7a2037c54f04375ddbf78d63b178b5
