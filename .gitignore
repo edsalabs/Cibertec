@@ -14,11 +14,23 @@ __pycache__/
 
 # Datos pesados (se mantienen locales)
 data/datos_normalizados_parquet/
+<<<<<<< HEAD
 data/processed/
+=======
+data/processed/*
+!data/processed/endes_2025_nutricion_m1638_enriquecido.parquet
+>>>>>>> e998f0dfcf7a2037c54f04375ddbf78d63b178b5
 
 # Logs
 logs/
 *.log
 
 # Variables de entorno y llaves secretas
+<<<<<<< HEAD
 .env
+=======
+.env
+
+# Documento local de trabajo
+Negocio.md
+>>>>>>> e998f0dfcf7a2037c54f04375ddbf78d63b178b5
