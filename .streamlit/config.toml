@@ -1,0 +1,15 @@
+[theme]
+# Color principal (Sustituye el rojo por un gris oscuro sobrio para chips y selecciones)
+primaryColor = "#94b0e9"
+
+# Fondo general de la aplicación (Blanco puro)
+backgroundColor = "#FFFFFF"
+
+# Fondo de contenedores secundarios y barra lateral (Gris muy claro)
+secondaryBackgroundColor = "#F7FAFC"
+
+# Color del texto principal
+textColor = "#1A202C"
+
+# Fuente tipográfica limpia
+font = "sans serif"
