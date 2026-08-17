@@ -1509,7 +1509,166 @@ def tab_prevalencia_etapa(df_filtrado: pd.DataFrame) -> None:
 # PESTAÑA 4 — PREGUNTA DE NEGOCIO 5.1
 # HEATMAP DE TRAYECTORIA CLÍNICA
 # ─────────────────────────────────────────────────────────────
+# Pachin
+# ──Pregunta 3-  Pestaña: Gradiente Económico y Nivel de Riqueza ─────────────────────────
 
+def tab_gradiente_economico(df_filtrado: pd.DataFrame, df_completo: pd.DataFrame) -> None:
+    """
+    Pestaña 3: Gradiente Económico - Análisis de la relación entre nivel de riqueza y anemia infantil.
+    """
+    st.subheader("💰 Gradiente Económico: Nivel de Riqueza y Prevalencia de Anemia Infantil")
+    st.caption("Análisis de la relación entre el quintil de riqueza del hogar (v190) y la prevalencia de anemia.")
+
+    # ── 0. VALIDACIÓN DE FILTROS ──────────────────────────────────────────────
+    # Si el usuario no ha seleccionado nada, mostramos el mensaje de advertencia y salimos.
+    if df_filtrado.empty:
+        st.warning("⚠️ No hay registros con los filtros actuales. Ajusta los filtros de la barra lateral para ver el análisis económico.")
+        return
+
+    # ── 1. PREPARACIÓN DE DATOS (USANDO df_filtrado) ──────────────────────────
+    dicc_quintil = {
+        1: '1. Más Pobre',
+        2: '2. Pobre',
+        3: '3. Medio',
+        4: '4. Rico',
+        5: '5. Más Rico'
+    }
+
+    # Trabajamos con df_filtrado para que los gráficos respondan a los filtros
+    df_riqueza = df_filtrado[df_filtrado['v190'].notnull()].copy()
+    df_riqueza['v190_num'] = pd.to_numeric(df_riqueza['v190'], errors='coerce')
+    df_riqueza['desc_quintil'] = df_riqueza['v190_num'].map(dicc_quintil)
+
+    # Si después de filtrar no hay datos en el quintil, detenemos la ejecución de esta pestaña
+    if df_riqueza.empty:
+        st.warning("⚠️ No hay datos de quintil de riqueza para el filtro seleccionado.")
+        return
+
+    df_resumen_q = df_riqueza.groupby(['v190_num', 'desc_quintil'], as_index=False).agg(
+        total_niños=('caseid', 'count'),
+        casos_anemia=('tiene_anemia', 'sum'),
+        pct_anemia=('tiene_anemia', lambda x: x.mean() * 100)
+    ).sort_values('v190_num')
+
+    # ── 2. TABLA DE RESULTADOS ────────────────────────────────────────────────
+    with st.expander("📋 Tabla de resultados por quintil de riqueza", expanded=False):
+        tabla_q = df_resumen_q.rename(columns={
+            'desc_quintil': 'Quintil de Riqueza',
+            'total_niños': 'Total Niños',
+            'casos_anemia': 'Casos Anemia',
+            'pct_anemia': 'Prevalencia (%)'
+        })
+        st.dataframe(tabla_q, use_container_width=True, hide_index=True)
+
+    # ── 3. GRÁFICO 1: LÍNEA DE TENDENCIA ────────────────────────────────────
+    col_izq, col_der = st.columns([2, 1])
+
+    with col_izq:
+        st.markdown("##### 📈 Tendencia de la Prevalencia por Quintil de Riqueza")
+        fig_line = go.Figure()
+        fig_line.add_trace(go.Scatter(
+            x=df_resumen_q['desc_quintil'],
+            y=df_resumen_q['pct_anemia'],
+            mode='lines+markers+text',
+            name='Prevalencia de Anemia',
+            line=dict(color='#1B4F72', width=3),
+            marker=dict(color='#C0392B', size=12, line=dict(color='white', width=1.5)),
+            text=df_resumen_q['pct_anemia'].apply(lambda x: f'{x:.1f}%'),
+            textposition='top center',
+            textfont=dict(size=10, color='#2C3E50'),
+            hovertemplate='<b>%{x}</b><br>Prevalencia: %{y:.1f}%<br>Casos: %{customdata[0]:,}<extra></extra>',
+            customdata=df_resumen_q[['casos_anemia']].values
+        ))
+        fig_line.update_layout(
+            xaxis=dict(title='Quintil de Riqueza del Hogar (v190)', tickangle=0),
+            yaxis=dict(title='Prevalencia de Anemia (%)', ticksuffix='%', gridcolor='#EAECEE',
+                       range=[0, max(df_resumen_q['pct_anemia']) + 12]),
+            plot_bgcolor='white', height=400, margin=dict(l=20, r=20, t=20, b=20)
+        )
+        st.plotly_chart(fig_line, use_container_width=True)
+
+    with col_der:
+        st.markdown("##### 📊 Indicadores Clave")
+        max_pct = df_resumen_q['pct_anemia'].max()
+        min_pct = df_resumen_q['pct_anemia'].min()
+        diff_pct = max_pct - min_pct
+        q_pobre = df_resumen_q[df_resumen_q['desc_quintil'] == '1. Más Pobre']
+        q_rico = df_resumen_q[df_resumen_q['desc_quintil'] == '5. Más Rico']
+
+        st.metric("Brecha entre Más Pobre y Más Rico", f"{diff_pct:.1f} puntos",
+                  delta=f"{max_pct:.1f}% → {min_pct:.1f}%", delta_color="inverse")
+        if not q_pobre.empty:
+            st.metric("Prevalencia - Quintil Más Pobre", f"{q_pobre.iloc[0]['pct_anemia']:.1f}%",
+                      delta=f"{q_pobre.iloc[0]['casos_anemia']:,} casos")
+        if not q_rico.empty:
+            st.metric("Prevalencia - Quintil Más Rico", f"{q_rico.iloc[0]['pct_anemia']:.1f}%",
+                      delta=f"{q_rico.iloc[0]['casos_anemia']:,} casos")
+
+    # ── 4. GRÁFICO 2: DISTRIBUCIÓN DE CASOS (Pregunta de Negocio 4) ────────
+    st.divider()
+    st.markdown("##### 📊 Distribución de Casos de Anemia por Quintil de Riqueza")
+    col_bar, col_pie = st.columns([2, 1])
+
+    with col_bar:
+        fig_bar = go.Figure()
+        fig_bar.add_trace(go.Bar(
+            x=df_resumen_q['desc_quintil'],
+            y=df_resumen_q['casos_anemia'],
+            text=df_resumen_q['casos_anemia'].apply(lambda x: f'{x:,}'),
+            textposition='outside',
+            marker=dict(color=['#A93226', '#E67E22', '#F1C40F', '#2ECC71', '#1B4F72'],
+                        line=dict(color='white', width=1.5)),
+            hovertemplate='<b>%{x}</b><br>Casos: %{y:,}<br>Prevalencia: %{customdata:.1f}%<extra></extra>',
+            customdata=df_resumen_q['pct_anemia']
+        ))
+        fig_bar.update_layout(
+            xaxis=dict(title='Quintil de Riqueza', tickangle=0),
+            yaxis=dict(title='Número de Casos de Anemia', gridcolor='#EAECEE'),
+            plot_bgcolor='white', height=350, margin=dict(l=20, r=20, t=20, b=20), showlegend=False
+        )
+        st.plotly_chart(fig_bar, use_container_width=True)
+
+    with col_pie:
+        fig_pie = go.Figure()
+        fig_pie.add_trace(go.Pie(
+            labels=df_resumen_q['desc_quintil'],
+            values=df_resumen_q['casos_anemia'],
+            textinfo='label+percent',
+            textposition='inside',
+            hole=0.4,
+            marker=dict(colors=['#A93226', '#E67E22', '#F1C40F', '#2ECC71', '#1B4F72']),
+            hovertemplate='<b>%{label}</b><br>Casos: %{value:,}<br>Porcentaje: %{percent}<extra></extra>'
+        ))
+        fig_pie.update_layout(title='Distribución de Casos', height=350, margin=dict(l=10, r=10, t=30, b=10), showlegend=False)
+        st.plotly_chart(fig_pie, use_container_width=True)
+
+  
+    # ── 5. CONCLUSIONES ──────────────────────────────────────────────────────
+    st.divider()
+    with st.expander("📝 Interpretación y Conclusiones", expanded=False):
+        
+        # Extraemos los datos de forma segura con .iloc para evitar errores de índice
+        q_pobre_data = df_resumen_q[df_resumen_q['desc_quintil'] == '1. Más Pobre']
+        q_rico_data = df_resumen_q[df_resumen_q['desc_quintil'] == '5. Más Rico']
+        
+        # Definimos valores por defecto (0) por si no hay datos en esos quintiles
+        pct_pobre = q_pobre_data['pct_anemia'].values[0] if not q_pobre_data.empty else 0.0
+        pct_rico = q_rico_data['pct_anemia'].values[0] if not q_rico_data.empty else 0.0
+        diff_pct = pct_pobre - pct_rico
+
+        st.markdown(f"""
+        **Hallazgos Principales**
+        1. **Relación inversa entre riqueza y anemia**: La prevalencia disminuye progresivamente con el quintil de riqueza.
+        2. **Brecha significativa**: Del quintil más pobre ({pct_pobre:.1f}%) al más rico ({pct_rico:.1f}%) hay una diferencia de {diff_pct:.1f} puntos porcentuales.
+        3. **Concentración de vulnerabilidad**: Los dos primeros quintiles suelen concentrar la mayor cantidad de casos.
+
+        **Recomendaciones**
+        - Focalizar intervenciones en quintiles 1 y 2
+        - Fortalecer programas de transferencia condicionada (Juntos, Cuna Más)
+        - Garantizar acceso equitativo a alimentos fortificados
+        - Monitorear indicadores socioeconómicos-nutricionales
+        """)
+    st.caption("📌 Análisis basado en el índice de riqueza del hogar (v190) · ENDES 2025")
 
 # ── Punto de Entrada de la Aplicación (Main) ────────────────────
 
@@ -1534,11 +1693,12 @@ def main() -> None:
 
     # Pestañas activas
     # La tercera pestaña corresponde a la Pregunta de Negocio 5.1.
-    tab1, tab2, tab3, tab4 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
         '📊 Resumen Epidemiológico',
         '🗺️ Impacto Geográfico y Focalización',
         '📈 Trayectoria de Hemoglobina',
         '🧒 5.1 Anemia por Etapa Pediátrica',
+        '💰 Gradiente Económico'
     ])
 
     with tab1:
@@ -1552,6 +1712,9 @@ def main() -> None:
 
     with tab4:
         tab_prevalencia_etapa(df_filtrado)
+
+    with tab5:
+            tab_gradiente_economico(df_filtrado, df_filtrado)   
 
 
 if __name__ == '__main__':
