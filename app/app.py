@@ -1503,6 +1503,227 @@ def tab_prevalencia_etapa(df_filtrado: pd.DataFrame) -> None:
             """
         )
 
+# ── Pregunta de Negocio 3: Brecha Socioeducativa ─────────────────
+
+def tab_brecha_socioeducativa(df_filtrado: pd.DataFrame) -> None:
+    """Pestaña independiente para la relación entre educación, jefatura y anemia."""
+    st.subheader('🎓 Brecha Socioeducativa y Vulnerabilidad del Hogar')
+    st.caption(
+        'Pregunta de negocio: ¿Cómo se asocian el nivel educativo de la madre o entrevistada '
+        'y el tipo de jefatura del hogar con la prevalencia de anemia infantil?'
+    )
+    st.caption('🎛️ Esta vista responde a los filtros globales de la barra lateral.')
+
+    if df_filtrado.empty:
+        st.warning('⚠️ No hay datos disponibles con los filtros seleccionados. Ajusta la barra lateral.')
+        return
+
+    columnas_requeridas = {
+        'caseid',
+        'nivel_educativo_agrupado',
+        'es_jefatura_femenina',
+        'tiene_anemia',
+        'desc_anemia_nivel',
+    }
+    faltantes = columnas_requeridas.difference(df_filtrado.columns)
+    if faltantes:
+        st.error(
+            'No se puede construir la pregunta 3 porque faltan estas columnas '
+            f'en el Parquet: {", ".join(sorted(faltantes))}'
+        )
+        return
+
+    orden_educacion = [
+        '1. Sin Educación',
+        '2. Primaria (Completa e Incompleta)',
+        '3. Secundaria (Completa e Incompleta)',
+        '4. Superior',
+    ]
+
+    # Los registros sin hemoglobina no forman parte del denominador epidemiológico.
+    df_analisis = df_filtrado[
+        df_filtrado['desc_anemia_nivel'].notna()
+        & df_filtrado['desc_anemia_nivel'].ne('Sin dato')
+        & df_filtrado['nivel_educativo_agrupado'].isin(orden_educacion)
+        & df_filtrado['es_jefatura_femenina'].isin([0, 1])
+    ].copy()
+
+    if df_analisis.empty:
+        st.warning(
+            '⚠️ No hay mediciones válidas de anemia para la combinación de filtros seleccionada.'
+        )
+        return
+
+    df_analisis['tipo_jefatura'] = np.where(
+        df_analisis['es_jefatura_femenina'].eq(1),
+        'Jefatura femenina',
+        'Jefatura masculina',
+    )
+    df_analisis['nivel_educativo_agrupado'] = pd.Categorical(
+        df_analisis['nivel_educativo_agrupado'],
+        categories=orden_educacion,
+        ordered=True,
+    )
+
+    resumen = (
+        df_analisis.groupby(
+            ['nivel_educativo_agrupado', 'tipo_jefatura'], observed=True, as_index=False
+        )
+        .agg(
+            n_evaluados=('caseid', 'count'),
+            casos_anemia=('tiene_anemia', 'sum'),
+            prevalencia_anemia=('tiene_anemia', lambda valores: valores.mean() * 100),
+        )
+        .sort_values(['nivel_educativo_agrupado', 'tipo_jefatura'])
+    )
+    resumen_educacion = (
+        df_analisis.groupby('nivel_educativo_agrupado', observed=True, as_index=False)
+        .agg(
+            n_evaluados=('caseid', 'count'),
+            casos_anemia=('tiene_anemia', 'sum'),
+            prevalencia_anemia=('tiene_anemia', lambda valores: valores.mean() * 100),
+        )
+        .sort_values('nivel_educativo_agrupado')
+    )
+
+    sin_educacion = resumen_educacion[
+        resumen_educacion['nivel_educativo_agrupado'].eq('1. Sin Educación')
+    ]
+    superior = resumen_educacion[
+        resumen_educacion['nivel_educativo_agrupado'].eq('4. Superior')
+    ]
+    prevalencia_general = df_analisis['tiene_anemia'].mean() * 100
+    brecha_educativa = (
+        sin_educacion.iloc[0]['prevalencia_anemia'] - superior.iloc[0]['prevalencia_anemia']
+        if not sin_educacion.empty and not superior.empty
+        else None
+    )
+
+    st.markdown('##### Panorama de la muestra seleccionada')
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric('Niños con medición válida', f'{len(df_analisis):,}')
+    col2.metric('Prevalencia de anemia', f'{prevalencia_general:.1f}%')
+    if brecha_educativa is not None:
+        col3.metric('Brecha: sin educación vs. superior', f'{brecha_educativa:.1f} p.p.')
+    else:
+        col3.metric('Brecha educativa', 'No disponible')
+    col4.metric('Casos de anemia', f"{int(df_analisis['tiene_anemia'].sum()):,}")
+
+    st.divider()
+    st.markdown('##### 📊 Prevalencia de anemia por educación y tipo de jefatura')
+    st.caption(
+        'Cada barra incluye la prevalencia y permite consultar casos y niños evaluados al pasar el cursor.'
+    )
+
+    etiquetas_educacion = {
+        '1. Sin Educación': 'Sin educación',
+        '2. Primaria (Completa e Incompleta)': 'Primaria',
+        '3. Secundaria (Completa e Incompleta)': 'Secundaria',
+        '4. Superior': 'Superior',
+    }
+    resumen['Educación'] = resumen['nivel_educativo_agrupado'].map(etiquetas_educacion)
+
+    fig = px.bar(
+        resumen,
+        x='Educación',
+        y='prevalencia_anemia',
+        color='tipo_jefatura',
+        barmode='group',
+        category_orders={
+            'Educación': list(etiquetas_educacion.values()),
+            'tipo_jefatura': ['Jefatura femenina', 'Jefatura masculina'],
+        },
+        color_discrete_map={
+            'Jefatura femenina': '#C0392B',
+            'Jefatura masculina': '#1B4F72',
+        },
+        text=resumen['prevalencia_anemia'].map(lambda valor: f'{valor:.1f}%'),
+        custom_data=['casos_anemia', 'n_evaluados'],
+        labels={
+            'prevalencia_anemia': 'Prevalencia de anemia (%)',
+            'tipo_jefatura': 'Tipo de jefatura',
+        },
+    )
+    fig.update_traces(
+        textposition='outside',
+        cliponaxis=False,
+        hovertemplate=(
+            '<b>%{x}</b><br>%{fullData.name}<br>'
+            'Prevalencia: <b>%{y:.1f}%</b><br>'
+            'Casos: %{customdata[0]:,}<br>'
+            'Niños evaluados: %{customdata[1]:,}<extra></extra>'
+        ),
+    )
+    fig.update_layout(
+        height=470,
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        margin=dict(l=20, r=20, t=25, b=20),
+        legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='left', x=0),
+        uniformtext_minsize=10,
+        uniformtext_mode='hide',
+    )
+    fig.update_yaxes(
+        title='Prevalencia de anemia (%)',
+        ticksuffix='%',
+        rangemode='tozero',
+        gridcolor='#EAECEE',
+    )
+    fig.update_xaxes(title='Nivel educativo de la madre o entrevistada')
+    st.plotly_chart(fig, use_container_width=True)
+
+    with st.expander('📋 Tabla de resultados por educación y jefatura', expanded=False):
+        tabla = resumen.rename(
+            columns={
+                'nivel_educativo_agrupado': 'Nivel educativo',
+                'tipo_jefatura': 'Tipo de jefatura',
+                'n_evaluados': 'Niños evaluados',
+                'casos_anemia': 'Casos de anemia',
+                'prevalencia_anemia': 'Prevalencia (%)',
+            }
+        )[
+            ['Nivel educativo', 'Tipo de jefatura', 'Niños evaluados', 'Casos de anemia', 'Prevalencia (%)']
+        ].copy()
+        tabla['Prevalencia (%)'] = tabla['Prevalencia (%)'].round(2)
+        st.dataframe(tabla, use_container_width=True, hide_index=True)
+
+    st.divider()
+    with st.expander('📝 Interpretación y conclusiones', expanded=False):
+        if brecha_educativa is not None:
+            mensaje_brecha = (
+                f'Entre los extremos educativos observados hay una brecha de **{brecha_educativa:.1f} '
+                'puntos porcentuales**: sin educación frente a educación superior.'
+            )
+        else:
+            mensaje_brecha = (
+                'La muestra filtrada no contiene ambos extremos educativos; la brecha no puede calcularse.'
+            )
+
+        st.markdown(
+            f"""
+            **Qué responde esta pregunta.** La vista identifica si la prevalencia de anemia cambia
+            según el nivel educativo de la madre o entrevistada y si el patrón se mantiene al
+            separar hogares con jefatura femenina y masculina.
+
+            **Mensaje principal.** {mensaje_brecha} La tendencia debe leerse de izquierda a derecha:
+            una menor prevalencia en los niveles educativos más altos refleja una asociación
+            consistente entre educación y mejores resultados nutricionales.
+
+            **Lectura de la jefatura.** Las barras del mismo nivel educativo permiten verificar si
+            la diferencia por tipo de jefatura añade una brecha relevante o si el nivel educativo
+            concentra la mayor parte del patrón observado.
+
+            **Decisión sugerida.** Priorizar consejería nutricional, seguimiento CRED y comunicación
+            preventiva en hogares donde la madre o entrevistada tiene educación primaria o menor.
+
+            **Rigor metodológico.** Los porcentajes excluyen registros sin medición válida de anemia
+            y se acompañan de su número de evaluados. Este análisis es descriptivo: muestra asociación,
+            no demuestra que la educación o la jefatura causen anemia.
+            """
+        )
+    st.caption('Fuente: ENDES 2025, módulo 1638 y variables sociodemográficas integradas del módulo 1631.')
+
+
 # ── Pregunta de Negocio: Trayectoria Clínica por Edad ────────────
 
 # ─────────────────────────────────────────────────────────────
@@ -1693,12 +1914,13 @@ def main() -> None:
 
     # Pestañas activas
     # La tercera pestaña corresponde a la Pregunta de Negocio 5.1.
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         '📊 Resumen Epidemiológico',
         '🗺️ Impacto Geográfico y Focalización',
         '📈 Trayectoria de Hemoglobina',
         '🧒 5.1 Anemia por Etapa Pediátrica',
-        '💰 Gradiente Económico'
+        '💰 Gradiente Económico',
+        '🎓 Brecha Socioeducativa',
     ])
 
     with tab1:
@@ -1715,6 +1937,9 @@ def main() -> None:
 
     with tab5:
             tab_gradiente_economico(df_filtrado, df_filtrado)   
+
+    with tab6:
+        tab_brecha_socioeducativa(df_filtrado)
 
 
 if __name__ == '__main__':
