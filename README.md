@@ -1,232 +1,363 @@
-<<<<<<< HEAD
-#  Despliegue y Evaluación de Dashboard - ENDES 2025
+# Observatorio Analítico de Anemia Infantil en el Perú
 
-Este proyecto realiza la ingesta, procesamiento, normalización y visualización de los datos del módulo ENDES 2025 provenientes de la API de Datos Abiertos del Perú.
+**Proyecto final — Lenguaje de Ciencia de Datos II · 4.º ciclo · Cibertec**
 
-##  Estructura del Proyecto
+Dashboard interactivo que analiza la anemia infantil en el Perú a partir de la Encuesta Demográfica y de Salud Familiar (ENDES 2025). El proyecto cubre el ciclo completo: ingesta desde la API de Datos Abiertos, procesamiento y enriquecimiento de variables, y visualización en una aplicación Streamlit orientada a la focalización de intervenciones nutricionales.
 
-- `src/`: Scripts de ingesta de API y procesamiento/enriquecimiento de datos.
-- `data/`: Almacenamiento local de archivos Parquet e intermedios.
-- `app/`: Aplicación interactiva construida con Streamlit.
-- `notebooks/`: Exploración inicial e ingesta de datos en Jupyter Notebook.
+🔗 **Aplicación desplegada:** https://cibertec-endes2025.streamlit.app/
+📦 **Repositorio:** https://github.com/edsalabs/Cibertec
 
-   PROYECTO-AVANCE/
-│
-├── .venv/                          # Entorno virtual (no subir a GitHub)
-├── .gitignore                      # Archivos excluidos de Git (.venv, __pycache__, data/)
-├── README.md                       # Documentación general y pasos de ejecución
-├── requirements.txt                # Librerías necesarias para ejecutar el proyecto
-│
-├── data/                           # Almacenamiento de datos (no subir a GitHub si son pesados)
-│   ├── datos_normalizados_parquet/ # Archivos Parquet post-ingesta (Paso 1)
-│   └── processed/                  # Datos finales enriquecidos y optimizados para el Dashboard
-│
-├── logs/                           # Carpeta dedicada para registros/logs
-│   └── ingesta_endes_2025.log
-├── notebooks/                      # Exploración inicial e ingesta interactiva
-│   └── ingesta_endes_visible2025.ipynb
-│
-├── src/                            # Código fuente modular (Pipelines de datos)
-│   ├── __init__.py
-│   ├── ingesta.py                  # Descarga de la API y conversión inicial a Parquet
-│   ├── procesamiento.py            # Enriquecimiento, reglas de negocio y validaciones
-│   └── utils.py                    # Funciones auxiliares (configuraciones, conectores)
-│
-└── app/                            # Aplicación para el Despliegue en Streamlit
-    ├── app.py                      # Punto de entrada principal (Main de Streamlit)
-    └── components/                 # Componentes visuales del Dashboard
-        ├── __init__.py
-        ├── sidebar.py              # Filtros y navegación
-        ├── charts.py               # Gráficos e indicadores (Plotly/Altair)
-        └── kpis.py                 # Tarjetas de métricas y resumen
-── .streamlit/                 # Configuración de temas/layout de Streamlit
-   └── config.toml
+---
 
+## Tabla de contenido
 
-##  Instrucciones de Ejecución
-1. Crear y activar el entorno virtual:
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+- [Objetivo](#objetivo)
+- [Preguntas de negocio](#preguntas-de-negocio)
+- [Estructura del dashboard](#estructura-del-dashboard)
+- [Hallazgos principales](#hallazgos-principales)
+- [Nota metodológica: el denominador](#nota-metodológica-el-denominador)
+- [Arquitectura del proyecto](#arquitectura-del-proyecto)
+- [Estructura de archivos](#estructura-de-archivos)
+- [Instalación y ejecución](#instalación-y-ejecución)
+- [Pipeline de datos y reproducibilidad](#pipeline-de-datos-y-reproducibilidad)
+- [Tecnologías](#tecnologías)
+- [Buenas prácticas aplicadas](#buenas-prácticas-aplicadas)
+- [Limitaciones conocidas](#limitaciones-conocidas)
+- [Fuente de datos](#fuente-de-datos)
 
-2. Instalar dependencias:
-pip install -r requirements.txt
-python -m pip install --upgrade pip
-
-3. Ejecutar la ingesta y procesamiento:
-python src/ingesta.py
-python src/procesamiento.py
-
-4. Lanzar el Dashboard en Streamlit:
-python -m streamlit run app/app.py
-
-
-
-# Crear el archivo .gitignore
-New-Item -Path .gitignore -ItemType File
-
-# Crear el archivo README.md
-New-Item -Path README.md -ItemType File
-=======
-# Observatorio Analitico de Anemia Infantil en el Peru
-
-Proyecto final del curso **Lenguaje de Ciencia de Datos II** - 4to ciclo, Cibertec.
-
-Este proyecto analiza la anemia infantil a partir de datos de la Encuesta Demografica y de Salud Familiar (ENDES). El resultado principal es un dashboard en Streamlit que permite revisar indicadores, comparar departamentos y aplicar filtros para apoyar la focalizacion de intervenciones nutricionales.
+---
 
 ## Objetivo
 
-Identificar grupos y territorios con mayor riesgo de anemia infantil para responder preguntas de negocio relacionadas con el orden de nacimiento, la ubicacion geografica, las condiciones socioeducativas, el nivel de riqueza y la edad del menor.
+Identificar los grupos poblacionales y los territorios con mayor riesgo de anemia infantil, combinando variables sociodemográficas, económicas, geográficas y clínicas, para apoyar decisiones de focalización de programas de salud pública.
+
+El análisis es **descriptivo**: identifica asociaciones entre variables, no relaciones de causalidad.
+
+---
 
 ## Preguntas de negocio
 
-1. **Prevalencia por orden de nacimiento:** Como varia la prevalencia de anemia infantil segun el orden de nacimiento del menor?
-2. **Impacto geografico:** Que departamentos concentran la mayor prevalencia de anemia y como se distribuye la muestra evaluada en cada uno?
-3. **Brecha socioeducativa y vulnerabilidad del hogar:** Como influyen el nivel educativo de la madre y la jefatura del hogar en la prevalencia de anemia infantil?
-4. **Gradiente economico:** El nivel de riqueza del hogar (variable `v190`) actua como un factor protector ante la anemia infantil en las regiones del Peru?
-5. **Trayectoria clinica por edad:** En que mes de vida del menor, entre 0 y 59 meses, se registra la mayor caida de hemoglobina y el mayor riesgo de anemia?
+Las cinco preguntas están implementadas en el dashboard y documentadas en [`notebooks/PreguntasNegocio.ipynb`](notebooks/PreguntasNegocio.ipynb).
 
-El detalle del analisis, los graficos y las conclusiones de las cinco preguntas se encuentran en [`notebooks/PreguntasNegocio.ipynb`](notebooks/PreguntasNegocio.ipynb). En la version actual del dashboard se visualizan las preguntas 1 y 2; las preguntas 3, 4 y 5 quedan documentadas en el notebook como soporte del analisis y como siguiente ampliacion de la aplicacion.
+| # | Pregunta | Variables principales | Pestaña |
+|---|---|---|---|
+| 1 | ¿Cómo varía la prevalencia de anemia según el orden de nacimiento del menor? | `hwidx` | 📊 Resumen Epidemiológico |
+| 2 | ¿Qué departamentos concentran la mayor prevalencia y cómo se distribuye la muestra? | `ubigeo`, `nombre_departamento` | 🗺️ Impacto Geográfico |
+| 3 | ¿Cómo influyen el nivel educativo de la madre y la jefatura del hogar en la prevalencia? | `v149`, `v151` | 🎓 Brecha Socioeducativa |
+| 4 | ¿El nivel de riqueza del hogar actúa como factor protector ante la anemia? | `v190` | 💰 Gradiente Económico |
+| 5 | ¿En qué mes de vida (0–59) se registra la mayor caída de hemoglobina y el mayor riesgo? | `edad_meses_num`, `hw56` | 📈 Trayectoria · 🧒 Etapa Pediátrica |
 
-## Hallazgos destacados
+---
 
-- Los primogenitos registran una prevalencia de anemia de 31.62%, frente a 21.07% en los segundos o terceros hijos de la muestra analizada.
-- Puno, Cusco y Loreto aparecen como los departamentos con mayor prevalencia en el analisis territorial.
-- La prevalencia disminuye conforme aumenta el nivel educativo y el quintil de riqueza del hogar.
-- El punto mas critico de hemoglobina se identifica a los 11 meses de edad, con 10.40 g/dL en promedio y una prevalencia de anemia de 69.2% en el analisis por edad.
+## Estructura del dashboard
 
-Los resultados deben interpretarse como un analisis descriptivo de la muestra ENDES utilizada en el proyecto; no establecen causalidad por si solos.
+La aplicación organiza el análisis en **seis pestañas**. Un panel lateral aplica filtros globales que recalculan todas las vistas.
 
-## Dashboard
+| Pestaña | Contenido |
+|---|---|
+| 📊 **Resumen Epidemiológico** | KPIs generales (niños evaluados, prevalencia, hemoglobina promedio, casos) y análisis por orden de nacimiento |
+| 🗺️ **Impacto Geográfico** | Ranking departamental, gráfico lollipop, treemap y semáforo de riesgo territorial |
+| 📈 **Trayectoria de Hemoglobina** | Evolución mes a mes de la hemoglobina promedio entre los 0 y 59 meses |
+| 🧒 **Anemia por Etapa Pediátrica** | Prevalencia agrupada por lactantes, caminadores y preescolares |
+| 💰 **Gradiente Económico** | Prevalencia por quintil de riqueza y distribución de casos |
+| 🎓 **Brecha Socioeducativa** | Gradiente educativo, contraste por jefatura del hogar y composición de la carga de casos |
 
-El dashboard presenta:
+### Filtros globales (barra lateral)
 
-- Indicadores generales: ninos evaluados, prevalencia, hemoglobina promedio y casos detectados.
-- Analisis de anemia por orden de nacimiento.
-- Analisis territorial con grafico lollipop y treemap.
-- Sidebar con filtros por departamento, nivel de riesgo, rango de edad y quintil de riqueza.
+- **Departamentos**, ordenados de mayor a menor prevalencia con indicador de semáforo
+- **Nivel de riesgo territorial**: crítico (≥ 40 %), alto (30–39.9 %), moderado (< 30 %)
+- **Rango de edad** en meses (0–59)
+- **Quintil de riqueza** del hogar
 
-Aplicacion desplegada: https://cibertec-endes2025.streamlit.app/
+La pestaña 🎓 Brecha Socioeducativa incorpora además un **filtro local** por nivel educativo, aplicable sobre los filtros globales.
 
-## Tecnologias utilizadas
+---
 
-- Python 3.13
-- Streamlit
-- Pandas y NumPy
-- Plotly
-- PyArrow y Fastavro
-- Requests
-- Jupyter Notebook para el analisis exploratorio
+## Hallazgos principales
 
-## Requisitos previos
+> Las cifras corresponden a la muestra ENDES procesada en este proyecto, sin filtros aplicados.
 
-- Python 3.13 o una version compatible.
-- Git instalado para clonar el repositorio.
-- Acceso a internet si se desea descargar y procesar nuevamente la fuente ENDES.
+**Orden de nacimiento.** Los primogénitos presentan una prevalencia notablemente mayor que los hijos de segundo o tercer orden.
 
-## Instalacion y ejecucion
+**Territorio.** Puno, Cusco y Loreto encabezan el ranking departamental de prevalencia. La brecha entre el departamento más y menos afectado supera los 30 puntos porcentuales.
 
-1. Clonar el repositorio:
+**Nivel socioeducativo.** La prevalencia desciende conforme aumenta el nivel educativo de la madre: **41.6 %** cuando no tiene educación frente a **28.7 %** con educación superior, una brecha de **12.8 puntos porcentuales**. El tipo de jefatura del hogar aporta una diferencia mucho menor, de alrededor de **1.2 puntos**, lo que señala a la educación como el factor dominante de esta relación.
 
-   ```bash
-   git clone https://github.com/edsalabs/Cibertec.git
-   cd Cibertec
-   ```
+**Concentración de la carga.** El grupo de mayor riesgo no coincide con el de mayor volumen: las madres sin educación registran la tasa más alta pero aportan el **1 %** de los casos, mientras que el nivel secundaria concentra el **53 %** del total. La focalización eficaz requiere combinar ambos criterios.
 
-2. Crear y activar un entorno virtual:
+**Nivel económico.** La prevalencia disminuye de forma monótona conforme sube el quintil de riqueza, con una brecha superior a **21 puntos porcentuales** entre el quintil más pobre y el más rico.
 
-   **Windows PowerShell**
+**Trayectoria por edad.** El punto crítico se ubica en el **mes 11**, con una hemoglobina promedio mínima de **10.40 g/dL** y la mayor prevalencia del ciclo (**69.2 %**).
 
-   ```powershell
-   python -m venv .venv
-   .\.venv\Scripts\Activate.ps1
-   ```
+---
 
-   **Windows CMD**
+## Nota metodológica: el denominador
 
-   ```bat
-   python -m venv .venv
-   .venv\Scripts\activate
-   ```
+La variable `hw57` del módulo 1638 codifica el nivel de anemia medido por hemoglobina. Además de los valores 1 a 4 (grave, moderada, leve, sin anemia), incluye el código **9 = no medido** y registros vacíos.
 
-3. Instalar las dependencias del dashboard:
+En la muestra procesada hay **2 142 niños sin medición válida** (1 590 con código 9 y 552 con valor vacío). Esto ocurre principalmente porque **ENDES no mide hemoglobina antes de los 6 meses de edad**.
 
-   ```bash
-   pip install -r requirements.txt
-   ```
+La pestaña 🎓 Brecha Socioeducativa aplica el criterio de **excluir estos registros del denominador**, bajo el principio de que un niño sin medición no puede clasificarse como sano. Por eso reporta:
 
-4. Ejecutar la aplicacion:
+| Indicador | Valor |
+|---|---|
+| Niños con medición válida | 16 699 |
+| Prevalencia sobre niños medidos | 34.5 % |
+| Casos de anemia | 5 757 |
 
-   ```bash
-   streamlit run app/app.py
-   ```
+Las demás vistas calculan la prevalencia sobre el total de registros de la muestra filtrada. La diferencia entre ambos criterios es de aproximadamente **3 a 4 puntos porcentuales**.
 
-5. Abrir la direccion que muestre Streamlit en el navegador, normalmente `http://localhost:8501`.
+> **Al comparar cifras entre pestañas conviene verificar cuál denominador se está usando.** La homologación de este criterio en todas las vistas está registrada en [Limitaciones conocidas](#limitaciones-conocidas).
 
-## Datos y reproducibilidad
+---
 
-Los archivos Parquet y los logs no se incluyen en GitHub para evitar publicar archivos pesados y resultados locales. Estas rutas estan excluidas en `.gitignore`:
+## Arquitectura del proyecto
 
-- `data/datos_normalizados_parquet/`
-- `data/processed/`
-- `logs/`
-- `.venv/`
-- `.env`
+El proyecto separa responsabilidades en cuatro capas:
 
-Para generar los datos procesados desde la fuente publica ENDES, ejecutar los siguientes comandos despues de instalar las dependencias:
-
-```bash
-python src/ingesta.py
-python src/procesamiento.py
+```
+┌─────────────────────────────────────────────────────────────┐
+│  CAPA DE DATOS                                              │
+│  src/ingesta.py        Descarga desde la API de Datos       │
+│                        Abiertos y normaliza a Parquet       │
+│  src/procesamiento.py  Integra módulos, deriva variables    │
+│                        y valida el esquema con Pandera      │
+│  → data/processed/endes_2025_nutricion_m1638_enriquecido.parquet │
+├─────────────────────────────────────────────────────────────┤
+│  CAPA DE LÓGICA                                             │
+│  cargar_y_preparar_datos()   Carga cacheada del Parquet     │
+│  sidebar_filtros()           Aplica los filtros globales    │
+│  bse_calcular_*()            Agregaciones de la pregunta 3  │
+│                              (devuelven DataFrames, sin     │
+│                               llamadas a Streamlit/Plotly)  │
+├─────────────────────────────────────────────────────────────┤
+│  CAPA DE PRESENTACIÓN                                       │
+│  tab_*()                     Renderizado de cada pestaña    │
+│  bse_grafico_*()             Construcción de figuras        │
+│                              (no ejecutan cálculos)         │
+├─────────────────────────────────────────────────────────────┤
+│  CAPA MAIN                                                  │
+│  main()                      Configura la página, monta     │
+│                              las pestañas y orquesta        │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-El primer comando descarga y normaliza los modulos requeridos; el segundo integra, transforma y genera el archivo `data/processed/endes_2025_nutricion_m1638_enriquecido.parquet` usado por el dashboard.
+### Estrategia de caché
 
-### Arquitectura de datos para el despliegue
+La carga del dataset y las agregaciones de la pregunta 3 se memorizan con `@st.cache_data`, evitando recalcular en cada interacción con los filtros:
 
-El proyecto separa codigo, datos y ejecucion:
+```python
+@st.cache_data(show_spinner=False)
+def cargar_y_preparar_datos() -> pd.DataFrame: ...
 
-- **GitHub** conserva codigo, dependencias, documentacion y el pipeline reproducible.
-- **GitHub** incluye el Parquet procesado que consume el dashboard. Su tamano reducido permite que la presentacion sea reproducible sin depender de servicios externos.
-- **Streamlit Cloud** ejecuta la aplicacion y lee ese Parquet directamente desde el repositorio desplegado.
+@st.cache_data(ttl=600, show_spinner=False)
+def bse_calcular_base(df_filtrado, niveles) -> pd.DataFrame: ...
+```
 
-Los Parquet crudos, logs y entornos locales permanecen excluidos para mantener el repositorio ligero. La fuente original es ENDES 2025 de Datos Abiertos del Peru y el pipeline incluido permite reconstruir el Parquet.
+El parámetro `ttl` se expresa **en segundos**: `ttl=600` invalida la caché cada 10 minutos.
 
-Para conservar trazabilidad, los cambios del dataset se validan antes de publicarse y se registran con fecha, responsable y descripcion. Para esta presentacion se versiona solo el Parquet final, no los datos crudos.
+---
 
-Para revisar los notebooks se requieren tambien Jupyter, Matplotlib, Seaborn, Squarify y Pandera.
+## Estructura de archivos
 
-## Estructura del proyecto
+Este árbol corresponde **exactamente** al contenido entregado en el repositorio:
 
 ```text
 Cibertec/
-|-- .streamlit/                 # Configuracion visual de Streamlit
-|-- app/
-|   `-- app.py                  # Punto de entrada del dashboard
-|-- data/                       # Datos locales, excluidos del repositorio
-|-- notebooks/
-|   |-- PreguntasNegocio.ipynb  # Analisis de las cinco preguntas de negocio
-|   |-- ingesta_endes_visible2025.ipynb
-|   `-- endes_2025_nutricion_enriquecido.ipynb
-|-- src/
-|   |-- ingesta.py              # Descarga y normalizacion de datos ENDES
-|   `-- procesamiento.py        # Integracion y transformacion de datos
-|-- .gitignore
-`-- requirements.txt
+├── .devcontainer/
+│   └── devcontainer.json           # Entorno reproducible para GitHub Codespaces
+├── .streamlit/
+│   └── config.toml                 # Tema visual del dashboard
+├── app/
+│   └── app.py                      # Aplicación Streamlit (punto de entrada)
+├── data/
+│   └── processed/
+│       └── endes_2025_nutricion_m1638_enriquecido.parquet   # Dataset final
+├── notebooks/
+│   ├── PreguntasNegocio.ipynb                   # Análisis de las 5 preguntas
+│   ├── ingesta_endes_visible2025.ipynb          # Exploración de la ingesta
+│   └── endes_2025_nutricion_enriquecido.ipynb   # Exploración del enriquecimiento
+├── src/
+│   ├── __init__.py
+│   ├── ingesta.py                  # Descarga desde la API y conversión a Parquet
+│   └── procesamiento.py            # Integración, variables derivadas y validación
+├── .gitattributes                  # Normalización de fin de línea
+├── .gitignore                      # Exclusiones del repositorio
+├── README.md                       # Este documento
+└── requirements.txt                # Dependencias del dashboard
 ```
 
-## Buenas practicas aplicadas
+### Rutas generadas en ejecución (no versionadas)
 
-- El entorno virtual, archivos `.env`, caches, logs y datos pesados estan excluidos del repositorio.
-- Las dependencias necesarias para el dashboard se registran en `requirements.txt`.
-- El codigo de la aplicacion, la ingesta y el procesamiento se encuentra separado por responsabilidad.
-- Se utilizan rutas relativas para facilitar la ejecucion del proyecto en otra computadora.
+Estas carpetas se crean al ejecutar el pipeline y están excluidas mediante `.gitignore`:
+
+```text
+├── data/datos_normalizados_parquet/   # Módulos ENDES crudos (13 archivos Parquet)
+├── logs/                              # Registros de ingesta y validación
+└── .venv/                             # Entorno virtual local
+```
+
+---
+
+## Instalación y ejecución
+
+### Requisitos previos
+
+- Python 3.13 o superior
+- Git
+- Conexión a internet únicamente si se desea regenerar los datos desde la fuente
+
+### Pasos
+
+**1. Clonar el repositorio**
+
+```bash
+git clone https://github.com/edsalabs/Cibertec.git
+cd Cibertec
+```
+
+**2. Crear y activar el entorno virtual**
+
+```powershell
+# Windows PowerShell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+```bat
+:: Windows CMD
+python -m venv .venv
+.venv\Scripts\activate
+```
+
+```bash
+# Linux / macOS
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+**3. Instalar dependencias**
+
+```bash
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+**4. Ejecutar el dashboard**
+
+```bash
+streamlit run app/app.py
+```
+
+La aplicación queda disponible en `http://localhost:8501`.
+
+> El dataset procesado está versionado en el repositorio, por lo que **el dashboard funciona sin ejecutar el pipeline de ingesta**.
+
+---
+
+## Pipeline de datos y reproducibilidad
+
+Para regenerar los datos desde la fuente pública:
+
+```bash
+python src/ingesta.py        # Descarga y normaliza los módulos ENDES a Parquet
+python src/procesamiento.py  # Integra 1631 + 1638, deriva variables y valida
+```
+
+> `src/procesamiento.py` requiere **Pandera**, que no está incluido en `requirements.txt`. Instalarlo con `pip install pandera` antes de ejecutar el pipeline.
+
+### Qué se versiona y qué no
+
+| Ruta | ¿En Git? | Motivo |
+|---|---|---|
+| `src/`, `app/`, `notebooks/` | ✅ Sí | Código y análisis |
+| `data/processed/*.parquet` | ✅ Sí | Dataset final ligero; permite desplegar sin servicios externos |
+| `data/datos_normalizados_parquet/` | ❌ No | Archivos crudos pesados, regenerables con el pipeline |
+| `logs/`, `.venv/`, `.env` | ❌ No | Salidas locales, entorno y credenciales |
+
+Streamlit Cloud ejecuta la aplicación leyendo el Parquet directamente del repositorio desplegado.
+
+### Variables derivadas
+
+`src/procesamiento.py` genera, entre otras:
+
+| Variable | Origen | Descripción |
+|---|---|---|
+| `tiene_anemia` | `hw57` | Indicador binario de presencia de anemia |
+| `desc_anemia_nivel` | `hw57` | Grave / Moderada / Leve / Sin anemia / Sin dato |
+| `hemoglobina_g_dl` | `hw56` | Hemoglobina en g/dL (`hw56` dividido entre 10) |
+| `nivel_educativo_agrupado` | `v149` | Educación de la madre en 4 grupos |
+| `desc_logro_educativo` | `v149` | Educación de la madre en 6 niveles |
+| `es_jefatura_femenina` | `v151` | Indicador de jefatura del hogar femenina |
+| `rango_edad_child` | `edad_meses_num` | Etapa pediátrica |
+| `tipo_orden_nacimiento` | `hwidx` | Orden del niño en el hogar |
+
+---
+
+## Tecnologías
+
+| Categoría | Herramientas |
+|---|---|
+| Lenguaje | Python 3.13 |
+| Aplicación web | Streamlit |
+| Manipulación de datos | Pandas, NumPy |
+| Visualización | Plotly (dashboard) · Matplotlib, Seaborn (notebooks) |
+| Formatos y E/S | PyArrow, Fastavro, Requests |
+| Validación | Pandera |
+| Análisis exploratorio | Jupyter Notebook |
+
+---
+
+## Buenas prácticas aplicadas
+
+**Código**
+
+- Separación de responsabilidades entre ingesta, procesamiento y presentación
+- Rutas relativas calculadas dinámicamente, portables entre equipos
+- Funciones tipadas y documentadas con docstrings
+- Caché explícito sobre las operaciones costosas
+
+**Visualización**
+
+- Cada gráfico incluye título, ejes rotulados con unidad y etiquetas de datos
+- Ejes de porcentaje anclados en cero, para no exagerar diferencias visuales
+- Orden lógico de categorías ordinales en lugar de alfabético
+- Paleta cromática consistente entre vistas
+- El *tooltip* reporta siempre el tamaño de muestra junto al porcentaje
+- La pregunta 3 incorpora intervalos de confianza al 95 % sobre cada barra
+
+**Repositorio**
+
+- Entorno virtual, cachés, logs y datos pesados excluidos vía `.gitignore`
+- Dependencias declaradas en `requirements.txt`
+- Dataset final versionado para garantizar un despliegue reproducible
+
+---
+
+## Limitaciones conocidas
+
+Registro de puntos pendientes de homologación:
+
+1. **Criterio de denominador no homogéneo.** La pestaña 🎓 Brecha Socioeducativa excluye del cálculo a los niños sin medición de hemoglobina; las demás vistas los incluyen. Esto produce diferencias de 3 a 4 puntos porcentuales entre pestañas. Ver [Nota metodológica](#nota-metodológica-el-denominador).
+
+2. **Cohorte de 0 a 5 meses.** ENDES no mide hemoglobina en ese rango de edad, por lo que esos registros carecen de resultado. Su tratamiento afecta especialmente a los indicadores agrupados por etapa pediátrica.
+
+3. **Pandera ausente de `requirements.txt`.** El pipeline de procesamiento lo requiere; el dashboard no.
+
+4. **Versiones no fijadas.** `requirements.txt` usa restricciones `>=`, lo que puede producir resoluciones distintas entre el entorno local y Streamlit Cloud. Se recomienda fijar versiones exactas antes de la entrega final.
+
+5. **Variable `tipo_orden_nacimiento`.** Se deriva de `hwidx`, que corresponde al índice del niño en el listado del hogar. Conviene verificar en el diccionario ENDES que su interpretación como orden de nacimiento sea correcta.
+
+---
 
 ## Fuente de datos
 
-- Encuesta Demografica y de Salud Familiar (ENDES), Datos Abiertos del Peru.
-- Modulos utilizados en el procesamiento: 1631 y 1638.
+- **Encuesta Demográfica y de Salud Familiar (ENDES)** — Instituto Nacional de Estadística e Informática (INEI), Perú
+- Publicada en la Plataforma Nacional de Datos Abiertos
+- Módulos utilizados: **1631** (características del hogar y de la entrevistada) y **1638** (antropometría y hemoglobina infantil)
 
-## Repositorio
+Los resultados corresponden a la muestra procesada en este proyecto y deben interpretarse como un análisis descriptivo.
 
-https://github.com/edsalabs/Cibertec
->>>>>>> e998f0dfcf7a2037c54f04375ddbf78d63b178b5
+---
+
+*Proyecto académico desarrollado para el curso Lenguaje de Ciencia de Datos II — Cibertec.*

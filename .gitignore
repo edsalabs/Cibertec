@@ -34,3 +34,11 @@ logs/
 # Documento local de trabajo
 Negocio.md
 >>>>>>> e998f0dfcf7a2037c54f04375ddbf78d63b178b5
+
+# Documentos y carpetas de trabajo local (nunca se suben)
+Negocio.md
+detalle.md
+UltimaClase/
+
+# Configuracion local de herramientas (solo local, nunca se sube)
+.claude/
